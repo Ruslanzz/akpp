@@ -492,28 +492,28 @@ int main(void)
     /* USER CODE END WHILE */
 
     //if ((position_p == GPIO_PIN_SET) && (position_pn == GPIO_PIN_SET))
-    if (position_p == GPIO_PIN_SET)
+    if (position_p == GPIO_PIN_RESET)
     {
         Position = 'P';
     }
-    if (position_r == GPIO_PIN_SET)
+    if (position_r == GPIO_PIN_RESET)
     {
         Position = 'R';
     }
     //if ((position_n == GPIO_PIN_SET) && (position_pn == GPIO_PIN_SET))
-    if (position_n == GPIO_PIN_SET)
+    if (position_n == GPIO_PIN_RESET)
     {
         Position = 'N';
     }
-    if (position_d == GPIO_PIN_SET)
+    if (position_d == GPIO_PIN_RESET)
     {
         Position = 'D';
     }
-    if (position_2 == GPIO_PIN_SET)
+    if (position_2 == GPIO_PIN_RESET)
     {
         Position = '2';
     }
-    if (position_1 == GPIO_PIN_SET)
+    if (position_1 == GPIO_PIN_RESET)
     {
         Position = '1';
     }  
@@ -1037,9 +1037,9 @@ void setPWM(int lpwm, int rpwm, int r_en, int l_en)
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  if(GPIO_Pin == gpio_pin) {    
-    setPWM(0,0,0,0);                               
-  }
+  // if(GPIO_Pin == gpio_pin) {    
+  //   setPWM(0,0,0,0);                               
+  // }
 }
 /* USER CODE END 4 */
 
