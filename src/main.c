@@ -184,9 +184,27 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
         } 
       }        
     }
-    if (std_device_id == 1 ) {         
-      if (parameter_index == BASE_SELECTOR + 1) {
-        Selector = RxData[0];        
+    if (std_device_id == 1 ) { 
+      if (parameter_index == BASE_COMP + 3) {
+        if (RxData[0] == 1) {
+          Selector = 'D';
+          selector_d = 1;
+        }
+        else{
+          selector_d = 0;
+        }
+      }
+      if (parameter_index == BASE_COMP + 4) {
+        if (RxData[0] == 1) {
+          Selector = 'R';
+          selector_r = 1;
+        }
+        else {
+          selector_r = 0;
+        }       
+      }
+      if (selector_d == 0 && selector_r == 0) {
+        Selector = 'N';
       }
     }
   }
@@ -472,19 +490,6 @@ int main(void)
     position_pn = Read_GPIO_Pin(comp[6]);
     
     /* USER CODE END WHILE */
-    // if (selector_r > 200)
-    // {
-    //     Selector = 'R';
-    // } 
-    // if (selector_d > 200)
-    // {
-    //     Selector = 'D';
-    // }
-    // if ((selector_r < 200) && (selector_d < 200))
-    // {
-    //     Selector = 'N';
-    // }  
-
 
     //if ((position_p == GPIO_PIN_SET) && (position_pn == GPIO_PIN_SET))
     if (position_p == GPIO_PIN_SET)
@@ -517,7 +522,7 @@ int main(void)
     switch ( Selector ) {
         case 'R':
             selector_int = 2;
-            gpio_pin = 4;
+            gpio_pin = 2;
             if (Position != 'R') {                           
                 struct pwm pwm_result = position_case(Position, selector_int);                
                 setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);                
@@ -525,7 +530,7 @@ int main(void)
             break;          
         case 'N':
             selector_int = 3;
-            gpio_pin = 8;
+            gpio_pin = 3;
             if (Position != 'N') {                 
                 struct pwm pwm_result = position_case(Position, selector_int);                
                 setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);                 
@@ -533,7 +538,7 @@ int main(void)
             break;          
         case 'D':
             selector_int = 4;
-            gpio_pin = 16;
+            gpio_pin = 4;
             if (Position != 'D') {                
                 struct pwm pwm_result = position_case(Position, selector_int);                
                 setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);                  
