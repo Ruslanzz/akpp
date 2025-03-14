@@ -81,7 +81,7 @@ unsigned char Position;
 unsigned int selector_int;
 unsigned int position_int;
 int period = 200;
-int mperiod = 100;
+int mperiod = 150;
 
 int selector_r;
 int selector_d;
@@ -185,27 +185,23 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
       }        
     }
     if (std_device_id == 1 ) { 
-      if (parameter_index == BASE_COMP + 3) {
-        if (RxData[0] == 1) {
-          Selector = 'D';
-          selector_d = 1;
+      if (parameter_index == BASE_COMP + 1) {
+        if (RxData[2] == 1) {
+          Selector = 'D';          
+        }         
+        if (RxData[3] == 1) {
+          Selector = 'R';          
         }
-        else{
-          selector_d = 0;
+        if (RxData[2] == 0 && RxData[3] == 0){
+          Selector = 'N';
+        } 
+        if (RxData[4] == 1){
+          HAL_GPIO_WritePin(GPIOB, EN_RELAY_1_Pin, GPIO_PIN_SET);
         }
-      }
-      if (parameter_index == BASE_COMP + 4) {
-        if (RxData[0] == 1) {
-          Selector = 'R';
-          selector_r = 1;
-        }
-        else {
-          selector_r = 0;
-        }       
-      }
-      if (selector_d == 0 && selector_r == 0) {
-        Selector = 'N';
-      }
+        if (RxData[4] == 0){
+          HAL_GPIO_WritePin(GPIOB, EN_RELAY_1_Pin, GPIO_PIN_RESET);
+        }      
+      }     
     }
   }
 }
@@ -491,7 +487,7 @@ int main(void)
     
     /* USER CODE END WHILE */
 
-    //if ((position_p == GPIO_PIN_SET) && (position_pn == GPIO_PIN_SET))
+    //if ((position_p == GPIO_PIN_RESET) && (position_pn == GPIO_PIN_RESET))
     if (position_p == GPIO_PIN_RESET)
     {
         Position = 'P';
@@ -500,7 +496,7 @@ int main(void)
     {
         Position = 'R';
     }
-    //if ((position_n == GPIO_PIN_SET) && (position_pn == GPIO_PIN_SET))
+   // if ((position_n == GPIO_PIN_RESET) && (position_pn == GPIO_PIN_RESET))
     if (position_n == GPIO_PIN_RESET)
     {
         Position = 'N';
@@ -527,6 +523,9 @@ int main(void)
                 struct pwm pwm_result = position_case(Position, selector_int);                
                 setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);                
             } 
+            else {
+              setPWM(0,0,0,0);
+            }
             break;          
         case 'N':
             selector_int = 3;
@@ -535,6 +534,9 @@ int main(void)
                 struct pwm pwm_result = position_case(Position, selector_int);                
                 setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);                 
             } 
+            else {
+              setPWM(0,0,0,0);
+            }
             break;          
         case 'D':
             selector_int = 4;
@@ -543,6 +545,9 @@ int main(void)
                 struct pwm pwm_result = position_case(Position, selector_int);                
                 setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);                  
             } 
+            else {
+              setPWM(0,0,0,0);
+            }
             break; 
           }
     /* USER CODE BEGIN 3 */
@@ -1024,23 +1029,23 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void setPWM(int lpwm, int rpwm, int r_en, int l_en)
 {
-  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
-  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, lpwm);
-  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
-  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, rpwm);
-
-   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
-  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, l_en);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
+  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, lpwm);
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_4);
-  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_4, r_en);  
+  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_4, rpwm);
+
+   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
+  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, l_en);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
+  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, r_en);  
 }
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-  // if(GPIO_Pin == gpio_pin) {    
-  //   setPWM(0,0,0,0);                               
-  // }
-}
+// void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+// {
+//   if(GPIO_Pin == gpio_pin) {    
+//    setPWM(0,0,0,0);                               
+//   }
+// }
 /* USER CODE END 4 */
 
 /**
