@@ -196,11 +196,19 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
           Selector = 'N';
         } 
         if (RxData[4] == 1){
-          HAL_GPIO_WritePin(GPIOB, EN_RELAY_1_Pin, GPIO_PIN_SET);
+          HAL_GPIO_WritePin(GPIOB, EN_RELAY_2_Pin, GPIO_PIN_SET);
+          HAL_GPIO_WritePin(GPIOB, EN_RELAY_4_Pin, GPIO_PIN_RESET);
         }
         if (RxData[4] == 0){
-          HAL_GPIO_WritePin(GPIOB, EN_RELAY_1_Pin, GPIO_PIN_RESET);
+          HAL_GPIO_WritePin(GPIOB, EN_RELAY_2_Pin, GPIO_PIN_RESET);
+          HAL_GPIO_WritePin(GPIOB, EN_RELAY_4_Pin, GPIO_PIN_SET);
         }      
+        if (RxData[5] == 1){
+          HAL_GPIO_WritePin(GPIOB, EN_RELAY_3_Pin, GPIO_PIN_SET);
+        }
+        if (RxData[5] == 0){
+          HAL_GPIO_WritePin(GPIOB, EN_RELAY_3_Pin, GPIO_PIN_RESET);
+        }  
       }     
     }
   }
