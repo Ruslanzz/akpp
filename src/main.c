@@ -48,6 +48,7 @@
 #define BASE_COMP         0x40
 #define BASE_RELAY_OUT    
 #define BASE_SELECTOR     0x50
+#define BASE_AKPP         0x60
 
 #define RELAY_COUNT       5
 #define ADC1_COUNT        2
@@ -56,6 +57,7 @@
 #define COMP_COUNT        1
 #define RELAY_OUT_COUNT   1
 #define SELECTOR_COUNT    1
+#define AKPP_COUNT        1
 
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
@@ -77,6 +79,7 @@ uint16_t l_pwm_value = 100;
 uint16_t r_pwm_value = 100;
 int8_t step = 0;
 unsigned char Selector = 'N';
+unsigned char selector_new = 'N';
 unsigned char Position;
 unsigned int selector_int;
 unsigned int position_int;
@@ -185,16 +188,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
       }        
     }
     if (std_device_id == 1 ) { 
-      if (parameter_index == BASE_COMP + 1) {
-        if (RxData[2] == 1) {
-          Selector = 'D';          
-        }         
-        if (RxData[3] == 1) {
-          Selector = 'R';          
-        }
-        if (RxData[2] == 0 && RxData[3] == 0){
-          Selector = 'N';
-        } 
+      if (parameter_index == BASE_COMP + COMP_COUNT) {             
         if (RxData[4] == 1){
           HAL_GPIO_WritePin(GPIOB, EN_RELAY_2_Pin, GPIO_PIN_SET);
           HAL_GPIO_WritePin(GPIOB, EN_RELAY_4_Pin, GPIO_PIN_RESET);
@@ -210,6 +204,17 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
           HAL_GPIO_WritePin(GPIOB, EN_RELAY_3_Pin, GPIO_PIN_RESET);
         }  
       }     
+    }
+    if (parameter_index == BASE_AKPP + AKPP_COUNT) {      
+      if (TIM_CHANNEL_STATE_GET(&htim1, TIM_CHANNEL_1) == HAL_TIM_CHANNEL_STATE_READY) {
+        selector_new = RxData[0];
+        if ((Selector == 'N') && (selector_new != 'N')) {          
+          HAL_TIM_OC_Start_IT(&htim1, TIM_CHANNEL_1);
+        }
+        else {
+          Selector = selector_new;
+        }
+      }
     }
   }
 }
@@ -372,14 +377,19 @@ struct pwm position_case(char Position, int selector_int) {
                return ret;
            } 
           break; 
+        case '0':              
+              ret.rpwm = 0;
+              ret.lpwm = mperiod;
+              ret.l_en = period;
+              ret.r_en = period;
+              return ret;       
+          break; 
         default:
           ret.lpwm = 0;
           ret.rpwm = 0;
           ret.l_en = 0;
           ret.r_en = 0;
-          return ret;
-
-               
+          return ret;               
     }
 }
 
@@ -441,11 +451,11 @@ int main(void)
 
   while (1)
   {
-    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADS_RES_BUFFER, 8);   
+    //HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADS_RES_BUFFER, 8);   
 
-    if (TIM_CHANNEL_STATE_GET(&htim1, TIM_CHANNEL_3) == HAL_TIM_CHANNEL_STATE_READY) {
-            uint8_t data_comp[8];            
-            uint32_t stdid;            
+    // if (TIM_CHANNEL_STATE_GET(&htim1, TIM_CHANNEL_3) == HAL_TIM_CHANNEL_STATE_READY) {
+    //         uint8_t data_comp[8];            
+    //         uint32_t stdid;            
             // for (uint8_t i = 0; i < 8; i++) {
             //     data_comp[i] = Read_GPIO_Pin(comp[i]);
             // }            
@@ -481,9 +491,9 @@ int main(void)
             // }
             // stdid = generate_stdid(device_id, BASE_RELAY_OUT, RELAY_OUT_COUNT);
             // CAN_SendMessage(stdid, data_relay, 4);
-      __HAL_TIM_ENABLE_IT(&htim1, TIM_IT_UPDATE); 
-      HAL_TIM_OC_Start_IT(&htim1, TIM_CHANNEL_3);
-    }  
+    //   __HAL_TIM_ENABLE_IT(&htim1, TIM_IT_UPDATE); 
+    //   HAL_TIM_OC_Start_IT(&htim1, TIM_CHANNEL_3);
+    // }  
    
     position_p = Read_GPIO_Pin(comp[0]);
     position_r = Read_GPIO_Pin(comp[1]);
@@ -524,40 +534,81 @@ int main(void)
    
 
     switch ( Selector ) {
-        case 'R':
-            selector_int = 2;
-            gpio_pin = 2;
-            if (Position != 'R') {                           
-                struct pwm pwm_result = position_case(Position, selector_int);                
-                setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);                
-            } 
-            else {
-              setPWM(0,0,0,0);
-            }
-            break;          
-        case 'N':
-            selector_int = 3;
-            gpio_pin = 3;
-            if (Position != 'N') {                 
-                struct pwm pwm_result = position_case(Position, selector_int);                
-                setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);                 
-            } 
-            else {
-              setPWM(0,0,0,0);
-            }
-            break;          
-        case 'D':
-            selector_int = 4;
-            gpio_pin = 4;
-            if (Position != 'D') {                
-                struct pwm pwm_result = position_case(Position, selector_int);                
-                setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);                  
-            } 
-            else {
-              setPWM(0,0,0,0);
-            }
-            break; 
+      case 'P':
+        selector_int = 1;
+        gpio_pin = 1;
+        if (Position != 'P') {              
+                          
+            struct pwm pwm_result = position_case(Position, selector_int);                
+            setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);
+                           
+        } 
+        else {
+          setPWM(0,0,0,0);
+        }
+        break; 
+      case 'R':
+          selector_int = 2;
+          gpio_pin = 2;
+          if (Position != 'R') {                
+                                         
+              struct pwm pwm_result = position_case(Position, selector_int);                
+              setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);
+                            
+          } 
+          else {
+            setPWM(0,0,0,0);
           }
+          break;          
+      case 'N':
+          selector_int = 3;
+          gpio_pin = 3;
+          if (Position != 'N') {                 
+              struct pwm pwm_result = position_case(Position, selector_int);                
+              setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);                 
+          } 
+          else {
+            setPWM(0,0,0,0);
+          }
+          break;          
+      case 'D':
+          selector_int = 4;
+          gpio_pin = 4;
+          if (Position != 'D') {              
+                            
+              struct pwm pwm_result = position_case(Position, selector_int);                
+              setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);
+                            
+          } 
+          else {
+            setPWM(0,0,0,0);
+          }
+          break;
+      case '2':
+          selector_int = 5;
+          gpio_pin = 5;
+          if (Position != '2') {             
+                       
+              struct pwm pwm_result = position_case(Position, selector_int);                
+              setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);
+                              
+          } 
+          else {
+            setPWM(0,0,0,0);
+          }
+          break;
+      case '1':
+          selector_int = 6;
+          gpio_pin = 6;
+          if (Position != '1') {                             
+              struct pwm pwm_result = position_case(Position, selector_int);                
+              setPWM(pwm_result.lpwm,pwm_result.rpwm,pwm_result.r_en,pwm_result.l_en);                              
+          } 
+          else {
+            setPWM(0,0,0,0);
+          }
+          break;  
+    }
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -791,9 +842,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 100-1;
+  htim1.Init.Prescaler = 7200-1;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 50000-1;
+  htim1.Init.Period = 20000-1;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -817,17 +868,17 @@ static void MX_TIM1_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_TIMING;
-  sConfigOC.Pulse = 10;
+  
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
   sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  sConfigOC.Pulse = 20000-1;
   if (HAL_TIM_OC_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
-  }
-  sConfigOC.Pulse = 10;
+  }  
   if (HAL_TIM_OC_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
@@ -1048,6 +1099,14 @@ void setPWM(int lpwm, int rpwm, int r_en, int l_en)
   __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, r_en);  
 }
 
+void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {  
+  if (htim->Instance == TIM1){
+  if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1){
+    Selector = selector_new;      
+    HAL_TIM_OC_Stop_IT(&htim1, TIM_CHANNEL_1);
+    }
+  }
+}
 // void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 // {
 //   if(GPIO_Pin == gpio_pin) {    
