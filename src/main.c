@@ -78,18 +78,20 @@ uint32_t TxMailbox = 0;
 uint16_t l_pwm_value = 100;
 uint16_t r_pwm_value = 100;
 int8_t step = 0;
-unsigned char Selector = 'N';
-unsigned char selector_new = 'N';
-unsigned char Position;
+unsigned char Selector = 'P';
+unsigned char selector_new = 'P';
+unsigned char Position = '0';
 unsigned int selector_int;
 unsigned int position_int;
-int period = 200;
-int mperiod = 150;
+int period = 2000;
+int mperiod = 1000;
 
 int selector_r;
 int selector_d;
 int temp_sens_1;
 int temp_sens_2;
+volatile uint32_t timer2_trigger_count = 0;  // Счётчик срабатываний
+volatile uint32_t valve = 0;  // Счётчик срабатываний
 
 GPIO_PinState position_p;
 GPIO_PinState position_r;
@@ -98,6 +100,7 @@ GPIO_PinState position_d;
 GPIO_PinState position_2;
 GPIO_PinState position_1;
 GPIO_PinState position_pn;
+GPIO_PinState position_0;
 
 uint16_t gpio_pin;
 /* USER CODE END PV */
@@ -135,8 +138,8 @@ GPIO_Config relay[] = {
 { GPIOB, EN_RELAY_5_Pin }
 };
 
-bool master = false;
-uint8_t device_id = 0x03;
+bool master = true;
+uint8_t device_id = 0x01;
 
 /* USER CODE END PFP */
 // Функция для чтения состояния пина с использованием структуры
@@ -190,12 +193,23 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
     if (std_device_id == 1 ) { 
       if (parameter_index == BASE_COMP + COMP_COUNT) {             
         if (RxData[4] == 1){
+          if (valve != 1) {
+          valve = 1;
           HAL_GPIO_WritePin(GPIOB, EN_RELAY_2_Pin, GPIO_PIN_SET);
           HAL_GPIO_WritePin(GPIOB, EN_RELAY_4_Pin, GPIO_PIN_RESET);
+          HAL_GPIO_WritePin(GPIOB, EN_RELAY_5_Pin, GPIO_PIN_SET);
+          timer2_trigger_count = 0; 
+          HAL_TIM_OC_Start_IT(&htim1, TIM_CHANNEL_2);
+          }
         }
         if (RxData[4] == 0){
-          HAL_GPIO_WritePin(GPIOB, EN_RELAY_2_Pin, GPIO_PIN_RESET);
-          HAL_GPIO_WritePin(GPIOB, EN_RELAY_4_Pin, GPIO_PIN_SET);
+          if (valve != 0) {
+            valve = 0;
+            HAL_GPIO_WritePin(GPIOB, EN_RELAY_2_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOB, EN_RELAY_4_Pin, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOB, EN_RELAY_5_Pin, GPIO_PIN_SET);            
+            HAL_TIM_OC_Stop_IT(&htim1, TIM_CHANNEL_2);
+          }
         }      
         if (RxData[5] == 1){
           HAL_GPIO_WritePin(GPIOB, EN_RELAY_3_Pin, GPIO_PIN_SET);
@@ -448,6 +462,7 @@ int main(void)
   __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, 0);
   __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
   __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_4, 0);  
+  __HAL_TIM_ENABLE_IT(&htim1, TIM_IT_UPDATE);
 
   while (1)
   {
@@ -844,10 +859,10 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 7200-1;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 20000-1;
+  htim1.Init.Period = 3000-1;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
-  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
   {
     Error_Handler();
@@ -1104,6 +1119,18 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
   if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1){
     Selector = selector_new;      
     HAL_TIM_OC_Stop_IT(&htim1, TIM_CHANNEL_1);
+    }
+  // Если сработал канал 1 → увеличиваем счётчик
+  if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2) {
+    timer2_trigger_count++;        
+        // Если было 5 срабатываний → вызываем функцию
+        if (timer2_trigger_count >= 10) {
+          HAL_GPIO_WritePin(GPIOB, EN_RELAY_2_Pin, GPIO_PIN_RESET);
+          HAL_GPIO_WritePin(GPIOB, EN_RELAY_4_Pin, GPIO_PIN_RESET);
+          HAL_GPIO_WritePin(GPIOB, EN_RELAY_5_Pin, GPIO_PIN_RESET);
+          HAL_TIM_OC_Stop_IT(&htim1, TIM_CHANNEL_2);
+          timer2_trigger_count = 0;  // Сброс счётчика            
+        }
     }
   }
 }
